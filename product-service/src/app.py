@@ -1,57 +1,67 @@
 from flask import Flask, jsonify, request
-
-products = [
-    {"id": 1, "name": "Laptop"},
-    {"id": 2, "name": "Smartphone"},
-    {"id": 3, "name": "Desktop"}
-]
+from db import db
+from Product import Product
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqldb://root:password@db:3306/products'
 
+db.init_app(app)
+
+""" @app.route('/products') """
 @app.route('/products', methods=['GET'])
 def get_products():
+    products = [product.json for product in Product.find_all()]
     return jsonify(products)
 
+""" @app.route('/product/<int:id>') """
 @app.route('/products/<int:id>', methods=['GET'])
 def get_product(id):
-    product_list = [product for product in products if product['id'] == id]
-    if len(product_list) == 0:
-        return jsonify({"error": f"Product with id:{id} not found"}), 404
-    return jsonify(product_list[0])
+    product = Product.find_by_id(id)
+    if product:
+        return jsonify(product.json)
+    return f"Product with id:{id} not found", 404
+
 
 @app.route('/product', methods=['POST'])
 def post_product():
+    print('POST /product')
+
+    # Retrieve the product from the request body
     request_product = request.json
 
-    new_id = max([product['id'] for product in products]) +1
-
     # Create the new product
-    new_product = {
-        'id': new_id,
-        'name': request_product['name']
-    }
+    product = Product(None, request_product['name'])
 
-    products.append(new_product)
-    return jsonify(new_product), 201
+    # Save the product to db
+    product.save_to_db()
+
+    # Return the jsonified product
+    return jsonify(product.json), 201
 
 @app.route('/products/<int:id>', methods=['PUT'])
 def put_product(id):
-    updated_product = request.json
+    existing_product = Product.find_by_id(id)
 
-    for product in products:
-        if product['id'] == id:
-            product['name'] = updated_product['name']
-            return jsonify(product), 200
-        
+    if existing_product:
+        # Get the request payload
+        updated_product = request.json
+
+        existing_product.name = updated_product['name']
+        existing_product.save_to_db()
+
+        return jsonify(existing_product.json), 200
+
     return f'Product with {id} not found', 404
 
 
 @app.route('/products/<int:id>', methods=['DELETE'])
 def delete_product(id):
-    product_list = [product for product in products if product['id'] == id]
-    if len(product_list) == 1:
-        products.remove(product_list[0])
-        return f'Product with id:{id} deleted', 200
+    existing_product = Product.find_by_id(id)
+    if existing_product:
+        existing_product.delete_from_db()
+        return jsonify({
+            'message': f'Deleted product with id {id}'
+        }), 200
     
     return f'Product with id:{id} not found', 404
 
