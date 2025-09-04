@@ -3,17 +3,21 @@ from db import db
 from Product import Product
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqldb://root:password@db:3306/products'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:password@db/products'
+""" app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqldb://root:password@db:3306/products' """
 
 db.init_app(app)
 
-""" @app.route('/products') """
+# For debug
+@app.route("/ping", methods=["POST"])
+def ping():
+    return {"msg": "pong"}, 200
+
 @app.route('/products', methods=['GET'])
 def get_products():
     products = [product.json for product in Product.find_all()]
     return jsonify(products)
 
-""" @app.route('/product/<int:id>') """
 @app.route('/products/<int:id>', methods=['GET'])
 def get_product(id):
     product = Product.find_by_id(id)
@@ -21,8 +25,7 @@ def get_product(id):
         return jsonify(product.json)
     return f"Product with id:{id} not found", 404
 
-
-@app.route('/product', methods=['POST'])
+@app.route('/products', methods=['POST'])
 def post_product():
     print('POST /product')
 
